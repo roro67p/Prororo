@@ -198,6 +198,25 @@ header {
 .install-banner.visible { display: block; }
 .install-banner strong { color: var(--gold); }
 .install-close { float: right; background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; }
+
+
+/* STOCK PAR TAILLE */
+.size-stock-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.size-stock-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 8px; text-align: center; }
+.size-stock-card.zero { opacity: .45; }
+.size-name { font-size: 11px; color: var(--blue); font-weight: 700; margin-bottom: 4px; }
+.size-count { font-size: 20px; font-weight: 800; }
+.size-count.low { color: var(--red); }
+.size-count.ok { color: var(--text); }
+.size-count.zero { color: var(--muted); }
+.size-controls { display: flex; gap: 5px; justify-content: center; margin-top: 7px; }
+.size-controls .qty-btn { width: 26px; height: 26px; font-size: 16px; }
+.sizes-form { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.size-input-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 8px; }
+.size-input-box label { color: var(--blue); font-size: 11px; font-weight: 700; margin-bottom: 4px; }
+.size-input-box input { padding: 9px 8px; text-align: center; }
+.size-summary { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
 </style>
 </head>
 <body>
@@ -242,35 +261,20 @@ header {
       <label>Club / Équipe</label>
       <input id="fClub" type="text" placeholder="ex: AC Milan, PSG, OL…">
     </div>
-    <div class="field-row">
-      <div class="field">
-        <label>Taille</label>
-        <select id="fTaille">
-          <option value="XS">XS</option>
-          <option value="S">S</option>
-          <option value="M">M</option>
-          <option value="L" selected>L</option>
-          <option value="XL">XL</option>
-          <option value="XXL">XXL</option>
-          <option value="Enf. S">Enf. S</option>
-          <option value="Enf. M">Enf. M</option>
-          <option value="Enf. L">Enf. L</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Saison</label>
-        <input id="fSaison" type="text" placeholder="2024/25">
-      </div>
+    <div class="field">
+      <label>Saison</label>
+      <input id="fSaison" type="text" placeholder="2024/25">
     </div>
-    <div class="field-row">
-      <div class="field">
-        <label>Stock dispo</label>
-        <input id="fStock" type="number" min="0" placeholder="0" value="1">
-      </div>
-      <div class="field">
-        <label>Déjà vendus</label>
-        <input id="fVendu" type="number" min="0" placeholder="0" value="0">
-      </div>
+
+    <div class="field">
+      <label>Stock par taille</label>
+      <div class="sizes-form" id="sizesForm"></div>
+      <div class="size-summary">Mets 0 si tu n'as pas cette taille. Exemple : M = 2, L = 1, XL = 3.</div>
+    </div>
+
+    <div class="field">
+      <label>Déjà vendus total</label>
+      <input id="fVendu" type="number" min="0" placeholder="0" value="0">
     </div>
     <div class="field-row">
       <div class="field">
@@ -292,18 +296,36 @@ header {
 <div class="toast" id="toast"></div>
 
 <script>
-const STORAGE_KEY = 'maillots_stock_v2';
-let maillots = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+const STORAGE_KEY = 'maillots_stock_v3_tailles';
+const OLD_STORAGE_KEY = 'maillots_stock_v2';
+const TAILLES = ['XS','S','M','L','XL','XXL','Enf. S','Enf. M','Enf. L'];
+
+let maillots = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
 let editId = null;
 
-if (maillots.length === 0) {
-  maillots = [
-    { id: Date.now(), club: 'AC Milan', taille: 'L', saison: '2024/25', stock: 2, vendu: 1, prix: 35, notes: 'Domicile' },
+if (!maillots) {
+  const old = JSON.parse(localStorage.getItem(OLD_STORAGE_KEY) || '[]');
+  maillots = old.length ? migrateOldData(old) : [
+    { id: Date.now(), club: 'AC Milan', saison: '2024/25', tailles: { M: 1, L: 2, XL: 1 }, vendu: 1, prix: 35, notes: 'Domicile' },
   ];
   save();
 }
 
+function migrateOldData(old) {
+  const map = new Map();
+  old.forEach(m => {
+    const key = `${(m.club||'').trim().toLowerCase()}|${m.saison||''}|${m.prix||0}|${m.notes||''}`;
+    if (!map.has(key)) map.set(key, { id: Date.now() + map.size, club: m.club, saison: m.saison||'', tailles: {}, vendu: 0, prix: m.prix||0, notes: m.notes||'' });
+    const item = map.get(key);
+    const taille = m.taille || 'L';
+    item.tailles[taille] = (item.tailles[taille] || 0) + (parseInt(m.stock) || 0);
+    item.vendu += parseInt(m.vendu) || 0;
+  });
+  return [...map.values()];
+}
+
 function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(maillots)); }
+function totalStock(m) { return Object.values(m.tailles || {}).reduce((a,v) => a + (parseInt(v)||0), 0); }
 
 function getEmoji(club) {
   const c = club.toLowerCase();
@@ -330,16 +352,16 @@ function render() {
   const q = document.getElementById('searchInput').value.toLowerCase();
   const filtered = maillots.filter(m =>
     m.club.toLowerCase().includes(q) ||
-    m.taille.toLowerCase().includes(q) ||
+    TAILLES.some(t => t.toLowerCase().includes(q) && (m.tailles?.[t]||0) > 0) ||
     (m.notes||'').toLowerCase().includes(q)
   );
 
-  const total = maillots.reduce((a,m) => a+m.stock, 0);
-  const totalVendu = maillots.reduce((a,m) => a+(m.vendu||0), 0);
-  const totalCA = maillots.reduce((a,m) => a+((m.vendu||0)*(m.prix||0)), 0);
-  const rupture = maillots.filter(m => m.stock===0).length;
+  const total = maillots.reduce((a,m) => a + totalStock(m), 0);
+  const totalVendu = maillots.reduce((a,m) => a + (m.vendu||0), 0);
+  const totalCA = maillots.reduce((a,m) => a + ((m.vendu||0)*(m.prix||0)), 0);
+  const rupture = maillots.filter(m => totalStock(m)===0).length;
   document.getElementById('statsBar').innerHTML = `
-    <div class="stat-pill"><div class="stat-num">${maillots.length}</div><div class="stat-label">Références</div></div>
+    <div class="stat-pill"><div class="stat-num">${maillots.length}</div><div class="stat-label">Modèles</div></div>
     <div class="stat-pill"><div class="stat-num">${total}</div><div class="stat-label">En stock</div></div>
     <div class="stat-pill"><div class="stat-num">${totalVendu}</div><div class="stat-label">Vendus</div></div>
     <div class="stat-pill"><div class="stat-num">${totalCA.toFixed(0)}€</div><div class="stat-label">CA total</div></div>
@@ -352,30 +374,42 @@ function render() {
   empty.style.display = 'none';
 
   list.innerHTML = filtered.map(m => {
-    const sc = m.stock === 0 ? 'stock-zero' : m.stock === 1 ? 'stock-low' : 'stock-ok';
+    const stock = totalStock(m);
+    const sc = stock === 0 ? 'stock-zero' : stock <= 2 ? 'stock-low' : 'stock-ok';
+    const taillesHtml = TAILLES.map(t => {
+      const n = parseInt(m.tailles?.[t]) || 0;
+      const cls = n === 0 ? 'zero' : n === 1 ? 'low' : 'ok';
+      return `<div class="size-stock-card ${n===0?'zero':''}">
+        <div class="size-name">${t}</div>
+        <div class="size-count ${cls}">${n}</div>
+        <div class="size-controls">
+          <button class="qty-btn btn-minus" onclick="changeSize('${m.id}','${t}',-1)">−</button>
+          <button class="qty-btn btn-plus" onclick="changeSize('${m.id}','${t}',+1)">+</button>
+        </div>
+      </div>`;
+    }).join('');
+
     return `
-    <div class="maillot-card ${m.stock===0?'sold-out':''}">
+    <div class="maillot-card ${stock===0?'sold-out':''}">
       <div class="card-top">
         <div class="emoji-badge">${getEmoji(m.club)}</div>
         <div class="info">
           <div class="club-name">${m.club}</div>
           <div class="meta-row">
-            <span class="tag tag-taille">${m.taille}</span>
             ${m.saison?`<span class="tag tag-saison">${m.saison}</span>`:''}
             ${m.prix?`<span class="tag tag-prix">${m.prix}€</span>`:''}
+            <span class="tag tag-taille">${stock} en stock</span>
           </div>
           ${m.notes?`<div class="notes-text">${m.notes}</div>`:''}
         </div>
       </div>
 
+      <div class="size-stock-grid">${taillesHtml}</div>
+
       <div class="card-actions-row">
         <div class="action-block">
-          <div class="action-label">📦 Stock dispo</div>
-          <div class="action-value ${sc}">${m.stock}</div>
-          <div class="qty-btns">
-            <button class="qty-btn btn-minus" onclick="changeVal('${m.id}','stock',-1)">−</button>
-            <button class="qty-btn btn-plus" onclick="changeVal('${m.id}','stock',+1)">+</button>
-          </div>
+          <div class="action-label">📦 Stock total</div>
+          <div class="action-value ${sc}">${stock}</div>
         </div>
         <div class="action-block">
           <div class="action-label">✅ Vendus</div>
@@ -395,34 +429,58 @@ function render() {
   }).join('');
 }
 
+function changeSize(id, taille, delta) {
+  const m = maillots.find(x => x.id==id);
+  if (!m) return;
+  if (!m.tailles) m.tailles = {};
+  const cur = parseInt(m.tailles[taille]) || 0;
+  if (cur + delta < 0) return;
+  m.tailles[taille] = cur + delta;
+  save(); render(); showToast(`${taille} → ${m.tailles[taille]}`);
+}
+
 function changeVal(id, field, delta) {
   const m = maillots.find(x => x.id==id);
   if (!m) return;
   const cur = m[field] || 0;
   if (cur + delta < 0) return;
   m[field] = cur + delta;
-  save(); render();
-  const label = field === 'stock' ? `📦 Stock → ${m[field]}` : `✅ Vendus → ${m[field]}`;
-  showToast(label);
+  save(); render(); showToast(`✅ Vendus → ${m[field]}`);
 }
 
 function deleteMaillot(id) {
-  if (!confirm('Supprimer ce maillot ?')) return;
+  if (!confirm('Supprimer ce modèle ?')) return;
   maillots = maillots.filter(x => x.id!=id);
-  save(); render();
-  showToast('🗑️ Supprimé');
+  save(); render(); showToast('🗑️ Supprimé');
+}
+
+function buildSizeInputs(values = {}) {
+  document.getElementById('sizesForm').innerHTML = TAILLES.map(t => `
+    <div class="size-input-box">
+      <label>${t}</label>
+      <input class="size-field" data-size="${t}" type="number" min="0" value="${parseInt(values[t])||0}">
+    </div>
+  `).join('');
+}
+
+function readSizes() {
+  const tailles = {};
+  document.querySelectorAll('.size-field').forEach(input => {
+    const n = parseInt(input.value) || 0;
+    tailles[input.dataset.size] = n;
+  });
+  return tailles;
 }
 
 function openModal() {
   editId = null;
   document.getElementById('modalTitle').textContent = 'Nouveau maillot';
   document.getElementById('fClub').value = '';
-  document.getElementById('fTaille').value = 'L';
   document.getElementById('fSaison').value = '';
-  document.getElementById('fStock').value = '1';
   document.getElementById('fVendu').value = '0';
   document.getElementById('fPrix').value = '';
   document.getElementById('fNotes').value = '';
+  buildSizeInputs({});
   document.getElementById('overlay').classList.add('open');
   setTimeout(() => document.getElementById('fClub').focus(), 350);
 }
@@ -431,14 +489,13 @@ function openEdit(id) {
   const m = maillots.find(x => x.id==id);
   if (!m) return;
   editId = id;
-  document.getElementById('modalTitle').textContent = 'Modifier le maillot';
+  document.getElementById('modalTitle').textContent = 'Modifier le modèle';
   document.getElementById('fClub').value = m.club;
-  document.getElementById('fTaille').value = m.taille;
   document.getElementById('fSaison').value = m.saison||'';
-  document.getElementById('fStock').value = m.stock;
   document.getElementById('fVendu').value = m.vendu||0;
   document.getElementById('fPrix').value = m.prix||'';
   document.getElementById('fNotes').value = m.notes||'';
+  buildSizeInputs(m.tailles || {});
   document.getElementById('overlay').classList.add('open');
 }
 
@@ -450,9 +507,8 @@ function saveMaillot() {
   if (!club) { document.getElementById('fClub').focus(); return; }
   const data = {
     club,
-    taille: document.getElementById('fTaille').value,
     saison: document.getElementById('fSaison').value.trim(),
-    stock: parseInt(document.getElementById('fStock').value)||0,
+    tailles: readSizes(),
     vendu: parseInt(document.getElementById('fVendu').value)||0,
     prix: parseFloat(document.getElementById('fPrix').value)||0,
     notes: document.getElementById('fNotes').value.trim(),
@@ -463,8 +519,7 @@ function saveMaillot() {
   } else {
     maillots.unshift({ id: Date.now(), ...data });
   }
-  save(); closeModal(); render();
-  showToast(editId ? '✅ Modifié' : '✅ Ajouté');
+  save(); closeModal(); render(); showToast(editId ? '✅ Modifié' : '✅ Ajouté');
 }
 
 function showToast(msg) {
@@ -479,13 +534,18 @@ function exportJSON() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = `maillots_${date}.json`; a.click();
-  URL.revokeObjectURL(url);
-  showToast('📤 Exporté');
+  URL.revokeObjectURL(url); showToast('📤 Exporté');
 }
 
-function importJSON() {
-  document.getElementById('importFile').value = '';
-  document.getElementById('importFile').click();
+function importJSON() { document.getElementById('importFile').value = ''; document.getElementById('importFile').click(); }
+
+function normalizeImport(data) {
+  return data.map(m => {
+    if (m.tailles) return m;
+    const tailles = {};
+    tailles[m.taille || 'L'] = parseInt(m.stock) || 0;
+    return { id: m.id || Date.now(), club: m.club || '', saison: m.saison || '', tailles, vendu: parseInt(m.vendu)||0, prix: parseFloat(m.prix)||0, notes: m.notes || '' };
+  });
 }
 
 function handleImport(event) {
@@ -496,9 +556,8 @@ function handleImport(event) {
     try {
       const data = JSON.parse(e.target.result);
       if (!Array.isArray(data)) throw new Error();
-      if (!confirm(`Importer ${data.length} maillot(s) ? Les données actuelles seront remplacées.`)) return;
-      maillots = data; save(); render();
-      showToast(`✅ ${data.length} maillot(s) importé(s)`);
+      if (!confirm(`Importer ${data.length} modèle(s) ? Les données actuelles seront remplacées.`)) return;
+      maillots = normalizeImport(data); save(); render(); showToast(`✅ ${data.length} modèle(s) importé(s)`);
     } catch { alert('Fichier invalide.'); }
   };
   reader.readAsText(file);
