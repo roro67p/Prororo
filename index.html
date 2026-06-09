@@ -1,1 +1,794 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Maillots">
+<meta name="theme-color" content="#0a0a0f">
+<title>Maillots Stock</title>
 
+<!-- PWA Manifest inline -->
+<link rel="manifest" href="data:application/json,%7B%22name%22%3A%22Maillots%20Stock%22%2C%22short_name%22%3A%22Maillots%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230a0a0f%22%2C%22theme_color%22%3A%22%230a0a0f%22%2C%22start_url%22%3A%22.%22%7D">
+
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c26;
+    --gold: #c9973a;
+    --gold-dim: #8a6420;
+    --green: #2ecc71;
+    --red: #e74c3c;
+    --text: #f0ede8;
+    --muted: #6b6880;
+    --border: #2a2a38;
+    --radius: 14px;
+    font-size: 16px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+    min-height: 100dvh;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* HEADER */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px 14px;
+    padding-top: calc(16px + env(safe-area-inset-top));
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .app-title {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--gold);
+  }
+  .app-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .header-btns { display: flex; gap: 8px; align-items: center; }
+  .btn-add {
+    background: var(--gold);
+    color: #000;
+    border: none;
+    border-radius: 50%;
+    width: 38px;
+    height: 38px;
+    font-size: 24px;
+    font-weight: 300;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity .15s;
+    flex-shrink: 0;
+  }
+  .btn-add:active { opacity: 0.7; }
+  .btn-icon {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    font-size: 17px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity .15s;
+    flex-shrink: 0;
+  }
+  .btn-icon:active { opacity: 0.6; }
+
+  /* STATS BAR */
+  .stats-bar {
+    display: flex;
+    gap: 12px;
+    padding: 14px 20px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .stats-bar::-webkit-scrollbar { display: none; }
+  .stat-pill {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 16px;
+    flex-shrink: 0;
+    text-align: center;
+    min-width: 90px;
+  }
+  .stat-num {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--gold);
+    line-height: 1;
+  }
+  .stat-label {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* SEARCH */
+  .search-wrap {
+    padding: 0 20px 14px;
+  }
+  .search-input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 15px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .search-input::placeholder { color: var(--muted); }
+  .search-input:focus { border-color: var(--gold-dim); }
+
+  /* LIST */
+  .list { padding: 0 20px 20px; display: flex; flex-direction: column; gap: 10px; }
+
+  .maillot-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: border-color .2s;
+  }
+  .maillot-card.sold-out { opacity: 0.45; }
+
+  .emoji-badge {
+    font-size: 32px;
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface2);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+
+  .info { flex: 1; min-width: 0; }
+  .club-name {
+    font-size: 16px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .meta-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 5px;
+    flex-wrap: wrap;
+  }
+  .tag {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .tag-taille { background: #1e2a40; color: #7db8f7; }
+  .tag-saison { background: #1e2d1e; color: #6ecf7a; }
+  .tag-prix { background: #2d1e10; color: var(--gold); }
+
+  .stock-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .stock-num {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text);
+    min-width: 36px;
+    text-align: center;
+  }
+  .stock-num.low { color: var(--red); }
+  .stock-num.zero { color: var(--muted); }
+  .stock-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+
+  .qty-btns { display: flex; gap: 6px; }
+  .qty-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: none;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity .15s;
+  }
+  .qty-btn:active { opacity: 0.6; }
+  .btn-minus { background: #2a1515; color: var(--red); }
+  .btn-plus { background: #152a1e; color: var(--green); }
+
+  /* SWIPE ACTIONS */
+  .card-wrap { position: relative; overflow: hidden; border-radius: var(--radius); }
+  .card-actions {
+    position: absolute;
+    right: 0; top: 0; bottom: 0;
+    display: flex;
+    align-items: stretch;
+    transform: translateX(100%);
+    transition: transform .25s ease;
+  }
+  .card-wrap.swiped .card-actions { transform: translateX(0); }
+  .action-btn {
+    width: 72px;
+    border: none;
+    cursor: pointer;
+    font-size: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-family: inherit;
+    transition: opacity .15s;
+  }
+  .action-btn:active { opacity: 0.7; }
+  .action-edit { background: #1a2e4a; color: #7db8f7; }
+  .action-del { background: #2a1515; color: var(--red); font-size: 10px; }
+  .action-btn span { font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
+
+  /* EMPTY */
+  .empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+  .empty-icon { font-size: 56px; margin-bottom: 16px; }
+  .empty-text { font-size: 15px; }
+
+  /* MODAL */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 200;
+    display: flex;
+    align-items: flex-end;
+    padding-bottom: env(safe-area-inset-bottom);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s;
+  }
+  .overlay.open { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: var(--surface);
+    border-radius: 20px 20px 0 0;
+    padding: 24px 20px 28px;
+    width: 100%;
+    border-top: 1px solid var(--border);
+    transform: translateY(100%);
+    transition: transform .3s cubic-bezier(.4,0,.2,1);
+  }
+  .overlay.open .modal { transform: translateY(0); }
+
+  .modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    color: var(--gold);
+  }
+
+  .field { margin-bottom: 14px; }
+  .field label {
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: block;
+    margin-bottom: 6px;
+  }
+  .field input, .field select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 15px;
+    padding: 11px 14px;
+    outline: none;
+    font-family: inherit;
+    -webkit-appearance: none;
+  }
+  .field input:focus, .field select:focus { border-color: var(--gold-dim); }
+  .field select option { background: var(--surface2); }
+
+  .field-row { display: flex; gap: 10px; }
+  .field-row .field { flex: 1; }
+
+  .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+  .btn-cancel {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity .15s;
+  }
+  .btn-save {
+    flex: 2;
+    background: var(--gold);
+    color: #000;
+    border: none;
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity .15s;
+  }
+  .btn-cancel:active, .btn-save:active { opacity: 0.75; }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: calc(20px + env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%) translateY(30px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 18px;
+    font-size: 13px;
+    color: var(--text);
+    z-index: 300;
+    opacity: 0;
+    transition: opacity .2s, transform .2s;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* INSTALL BANNER */
+  .install-banner {
+    margin: 0 20px 10px;
+    background: var(--surface2);
+    border: 1px solid var(--gold-dim);
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.5;
+    display: none;
+  }
+  .install-banner.visible { display: block; }
+  .install-banner strong { color: var(--gold); }
+  .install-close {
+    float: right;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 18px;
+    cursor: pointer;
+    margin-left: 8px;
+    margin-top: -2px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-row">
+    <div>
+      <div class="app-title">⚽ Maillots</div>
+      <div class="app-sub">Gestion de stock</div>
+    </div>
+    <div class="header-btns">
+      <button class="btn-icon" onclick="importJSON()" title="Importer">📥</button>
+      <button class="btn-icon" onclick="exportJSON()" title="Exporter">📤</button>
+      <button class="btn-add" onclick="openModal()">+</button>
+    </div>
+  </div>
+</header>
+<input type="file" id="importFile" accept=".json" style="display:none" onchange="handleImport(event)">
+
+<div class="stats-bar" id="statsBar"></div>
+
+<div class="search-wrap">
+  <input class="search-input" type="search" placeholder="🔍  Rechercher un maillot..." id="searchInput" oninput="render()">
+</div>
+
+<div class="install-banner" id="installBanner">
+  <button class="install-close" onclick="document.getElementById('installBanner').style.display='none'">×</button>
+  📲 <strong>Installer sur iPhone :</strong> appuie sur <strong>Partager</strong> puis <strong>Sur l'écran d'accueil</strong>
+</div>
+
+<div class="list" id="list"></div>
+<div class="empty" id="empty" style="display:none">
+  <div class="empty-icon">👕</div>
+  <div class="empty-text">Aucun maillot trouvé</div>
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay" onclick="closeOnOverlay(event)">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">Nouveau maillot</div>
+    <div class="field">
+      <label>Club / Équipe</label>
+      <input id="fClub" type="text" placeholder="ex: AC Milan, PSG, OL…">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Taille</label>
+        <select id="fTaille">
+          <option value="XS">XS</option>
+          <option value="S">S</option>
+          <option value="M">M</option>
+          <option value="L" selected>L</option>
+          <option value="XL">XL</option>
+          <option value="XXL">XXL</option>
+          <option value="Enfant S">Enf. S</option>
+          <option value="Enfant M">Enf. M</option>
+          <option value="Enfant L">Enf. L</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Saison</label>
+        <input id="fSaison" type="text" placeholder="2024/25">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Stock initial</label>
+        <input id="fStock" type="number" min="0" placeholder="0" value="1">
+      </div>
+      <div class="field">
+        <label>Prix vente (€)</label>
+        <input id="fPrix" type="number" min="0" placeholder="0" step="0.5">
+      </div>
+    </div>
+    <div class="field">
+      <label>Notes (optionnel)</label>
+      <input id="fNotes" type="text" placeholder="ex: domicile, third, signé…">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Annuler</button>
+      <button class="btn-save" onclick="saveMaillot()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STORAGE_KEY = 'maillots_stock_v1';
+let maillots = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+let editId = null;
+let swipedCard = null;
+
+// Données exemple au premier lancement
+if (maillots.length === 0) {
+  maillots = [
+    { id: Date.now(), club: 'AC Milan', taille: 'L', saison: '2024/25', stock: 2, prix: 35, notes: 'Domicile', vendu: 1 },
+  ];
+  save();
+}
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(maillots));
+}
+
+function getEmoji(club) {
+  const c = club.toLowerCase();
+  if (c.includes('psg') || c.includes('paris')) return '🔵🔴';
+  if (c.includes('lyon') || c.includes('ol')) return '🔴🔵';
+  if (c.includes('milan') || c.includes('ac milan')) return '🔴⚫';
+  if (c.includes('inter')) return '⚫🔵';
+  if (c.includes('barça') || c.includes('barcelona')) return '🔵🔴';
+  if (c.includes('real') || c.includes('madrid')) return '⚪';
+  if (c.includes('juve') || c.includes('juventus')) return '⚫⚪';
+  if (c.includes('marseille') || c.includes('om')) return '🩵';
+  if (c.includes('france') || c.includes('edf')) return '🇫🇷';
+  if (c.includes('chelsea')) return '🔵';
+  if (c.includes('arsenal')) return '🔴⚪';
+  if (c.includes('liverpool')) return '🔴';
+  if (c.includes('manu') || c.includes('united')) return '🔴';
+  if (c.includes('city') || c.includes('manchester c')) return '💙';
+  if (c.includes('dortmund') || c.includes('bvb')) return '🟡⚫';
+  if (c.includes('bayern')) return '🔴⚪';
+  if (c.includes('porto')) return '🔵⚪🔵';
+  if (c.includes('benfica')) return '🔴';
+  return '⚽';
+}
+
+function render() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const filtered = maillots.filter(m =>
+    m.club.toLowerCase().includes(q) ||
+    m.taille.toLowerCase().includes(q) ||
+    (m.notes || '').toLowerCase().includes(q)
+  );
+
+  // Stats
+  const total = maillots.reduce((a, m) => a + m.stock, 0);
+  const totalVendu = maillots.reduce((a, m) => a + (m.vendu || 0), 0);
+  const totalCA = maillots.reduce((a, m) => a + ((m.vendu || 0) * (m.prix || 0)), 0);
+  const rupture = maillots.filter(m => m.stock === 0).length;
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat-pill"><div class="stat-num">${maillots.length}</div><div class="stat-label">Références</div></div>
+    <div class="stat-pill"><div class="stat-num">${total}</div><div class="stat-label">En stock</div></div>
+    <div class="stat-pill"><div class="stat-num">${totalVendu}</div><div class="stat-label">Vendus</div></div>
+    <div class="stat-pill"><div class="stat-num">${totalCA.toFixed(0)}€</div><div class="stat-label">CA total</div></div>
+    ${rupture ? `<div class="stat-pill"><div class="stat-num" style="color:var(--red)">${rupture}</div><div class="stat-label">Rupture</div></div>` : ''}
+  `;
+
+  const list = document.getElementById('list');
+  const empty = document.getElementById('empty');
+
+  if (filtered.length === 0) {
+    list.innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+
+  list.innerHTML = filtered.map(m => {
+    const lowClass = m.stock === 0 ? 'zero' : m.stock === 1 ? 'low' : '';
+    const soldOut = m.stock === 0 ? 'sold-out' : '';
+    return `
+    <div class="card-wrap" id="wrap-${m.id}">
+      <div class="maillot-card ${soldOut}" onclick="handleCardClick(event, '${m.id}')">
+        <div class="emoji-badge">${getEmoji(m.club)}</div>
+        <div class="info">
+          <div class="club-name">${m.club}</div>
+          <div class="meta-row">
+            <span class="tag tag-taille">${m.taille}</span>
+            ${m.saison ? `<span class="tag tag-saison">${m.saison}</span>` : ''}
+            ${m.prix ? `<span class="tag tag-prix">${m.prix}€</span>` : ''}
+          </div>
+          ${m.notes ? `<div style="font-size:12px;color:var(--muted);margin-top:5px">${m.notes}</div>` : ''}
+          ${m.vendu ? `<div style="font-size:11px;color:var(--green);margin-top:3px">✓ ${m.vendu} vendu${m.vendu>1?'s':''}</div>` : ''}
+        </div>
+        <div class="stock-block">
+          <div class="stock-label">Stock</div>
+          <div class="stock-num ${lowClass}">${m.stock}</div>
+          <div class="qty-btns">
+            <button class="qty-btn btn-minus" onclick="event.stopPropagation();changeStock('${m.id}',-1)">−</button>
+            <button class="qty-btn btn-plus" onclick="event.stopPropagation();changeStock('${m.id}',+1)">+</button>
+          </div>
+        </div>
+      </div>
+      <div class="card-actions" id="actions-${m.id}">
+        <button class="action-btn action-edit" onclick="openEdit('${m.id}')">✏️<span>Modifier</span></button>
+        <button class="action-btn action-del" onclick="deleteMaillot('${m.id}')">🗑️<span>Suppr.</span></button>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Touch swipe detection for delete/edit
+  filtered.forEach(m => {
+    const wrap = document.getElementById('wrap-' + m.id);
+    if (!wrap) return;
+    let startX = 0, startY = 0;
+    wrap.addEventListener('touchstart', e => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    }, { passive: true });
+    wrap.addEventListener('touchend', e => {
+      const dx = e.changedTouches[0].clientX - startX;
+      const dy = e.changedTouches[0].clientY - startY;
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) {
+        if (dx < 0) {
+          if (swipedCard && swipedCard !== wrap) swipedCard.classList.remove('swiped');
+          wrap.classList.add('swiped');
+          swipedCard = wrap;
+        } else {
+          wrap.classList.remove('swiped');
+          swipedCard = null;
+        }
+      }
+    }, { passive: true });
+  });
+}
+
+function handleCardClick(e, id) {
+  if (swipedCard) {
+    swipedCard.classList.remove('swiped');
+    swipedCard = null;
+    e.stopPropagation();
+  }
+}
+
+function changeStock(id, delta) {
+  const m = maillots.find(x => x.id == id);
+  if (!m) return;
+  if (delta < 0 && m.stock === 0) return;
+  m.stock = Math.max(0, m.stock + delta);
+  if (delta < 0) m.vendu = (m.vendu || 0) + 1;
+  save();
+  render();
+  showToast(delta < 0 ? `📦 Vendu ! Stock → ${m.stock}` : `📦 +1 en stock → ${m.stock}`);
+}
+
+function deleteMaillot(id) {
+  if (!confirm('Supprimer ce maillot ?')) return;
+  maillots = maillots.filter(x => x.id != id);
+  save();
+  render();
+  showToast('🗑️ Maillot supprimé');
+}
+
+// MODAL
+function openModal() {
+  editId = null;
+  document.getElementById('modalTitle').textContent = 'Nouveau maillot';
+  document.getElementById('fClub').value = '';
+  document.getElementById('fTaille').value = 'L';
+  document.getElementById('fSaison').value = '';
+  document.getElementById('fStock').value = '1';
+  document.getElementById('fPrix').value = '';
+  document.getElementById('fNotes').value = '';
+  document.getElementById('overlay').classList.add('open');
+  setTimeout(() => document.getElementById('fClub').focus(), 350);
+}
+
+function openEdit(id) {
+  const m = maillots.find(x => x.id == id);
+  if (!m) return;
+  editId = id;
+  document.getElementById('modalTitle').textContent = 'Modifier le maillot';
+  document.getElementById('fClub').value = m.club;
+  document.getElementById('fTaille').value = m.taille;
+  document.getElementById('fSaison').value = m.saison || '';
+  document.getElementById('fStock').value = m.stock;
+  document.getElementById('fPrix').value = m.prix || '';
+  document.getElementById('fNotes').value = m.notes || '';
+  document.getElementById('overlay').classList.add('open');
+  if (swipedCard) { swipedCard.classList.remove('swiped'); swipedCard = null; }
+}
+
+function closeModal() {
+  document.getElementById('overlay').classList.remove('open');
+}
+
+function closeOnOverlay(e) {
+  if (e.target === document.getElementById('overlay')) closeModal();
+}
+
+function saveMaillot() {
+  const club = document.getElementById('fClub').value.trim();
+  if (!club) { document.getElementById('fClub').focus(); return; }
+  const data = {
+    club,
+    taille: document.getElementById('fTaille').value,
+    saison: document.getElementById('fSaison').value.trim(),
+    stock: parseInt(document.getElementById('fStock').value) || 0,
+    prix: parseFloat(document.getElementById('fPrix').value) || 0,
+    notes: document.getElementById('fNotes').value.trim(),
+  };
+
+  if (editId) {
+    const idx = maillots.findIndex(x => x.id == editId);
+    maillots[idx] = { ...maillots[idx], ...data };
+  } else {
+    maillots.unshift({ id: Date.now(), vendu: 0, ...data });
+  }
+
+  save();
+  closeModal();
+  render();
+  showToast(editId ? '✅ Maillot modifié' : '✅ Maillot ajouté');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// Install hint on iOS
+function isIOS() { return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream; }
+function isStandalone() { return window.navigator.standalone === true; }
+if (isIOS() && !isStandalone()) {
+  document.getElementById('installBanner').classList.add('visible');
+}
+
+// Close swipe on doc tap
+document.addEventListener('touchstart', e => {
+  if (swipedCard && !swipedCard.contains(e.target)) {
+    swipedCard.classList.remove('swiped');
+    swipedCard = null;
+  }
+}, { passive: true });
+
+// Enter key in modal
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('overlay').classList.contains('open')) saveMaillot();
+  if (e.key === 'Escape') closeModal();
+});
+
+// EXPORT JSON
+function exportJSON() {
+  const date = new Date().toISOString().slice(0,10);
+  const filename = `maillots_${date}.json`;
+  const json = JSON.stringify(maillots, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(`📤 Sauvegarde exportée`);
+}
+
+// IMPORT JSON
+function importJSON() {
+  document.getElementById('importFile').value = '';
+  document.getElementById('importFile').click();
+}
+
+function handleImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!Array.isArray(data)) throw new Error('Format invalide');
+      if (!confirm(`Importer ${data.length} maillot(s) ?\n\nCela REMPLACERA toutes les données actuelles.`)) return;
+      maillots = data;
+      save();
+      render();
+      showToast(`✅ ${data.length} maillot(s) importé(s)`);
+    } catch(err) {
+      alert('Fichier invalide. Assure-toi d\'utiliser un fichier exporté depuis cette appli.');
+    }
+  };
+  reader.readAsText(file);
+}
+
+render();
+</script>
+</body>
+</html>
